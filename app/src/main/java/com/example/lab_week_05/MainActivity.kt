@@ -22,16 +22,19 @@ import com.example.lab_week_05.model.GlideLoader
 import kotlin.getValue
 
 class MainActivity : AppCompatActivity() {
-    private val retrofit by lazy{
+
+    private val retrofit by lazy {
         Retrofit.Builder()
             .baseUrl("https://api.thecatapi.com/v1/")
             .addConverterFactory(MoshiConverterFactory.create())
             .build()
     }
-    private val catApiService by lazy{
+
+    private val catApiService by lazy {
         retrofit.create(CatApiService::class.java)
     }
-    private val apiResponseView: TextView by lazy{
+
+    private val apiResponseView: TextView by lazy {
         findViewById(R.id.api_response)
     }
     private val imageResultView: ImageView by lazy {
@@ -43,9 +46,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+
+        // Fix root layout in XML → must have android:id="@+id/main"
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
+
         getCatImageResponse()
     }
+
     private fun getCatImageResponse() {
         val call = catApiService.searchImages(1, "full")
         call.enqueue(object : Callback<List<ImageData>> {
@@ -54,21 +67,25 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onResponse(
-                call: Call<List<ImageData>>, response:
-                Response<List<ImageData>>
+                call: Call<List<ImageData>>,
+                response: Response<List<ImageData>>
             ) {
                 if (response.isSuccessful) {
-                    val image = response.body()
-                    val firstImage = image?.firstOrNull()?.imageUrl.orEmpty()
-                    if (firstImage.isNotBlank()) {
-                        imageLoader.loadImage(firstImage, imageResultView)
+                    val imageList = response.body()
+                    val firstImage = imageList?.firstOrNull()
+
+                    val imageUrl = firstImage?.imageUrl.orEmpty()
+                    val breedName = firstImage?.breeds?.firstOrNull()?.name ?: "Unknown"
+
+                    // Load image
+                    if (imageUrl.isNotBlank()) {
+                        imageLoader.loadImage(imageUrl, imageResultView)
                     } else {
                         Log.d(MAIN_ACTIVITY, "Missing image URL")
                     }
-                    apiResponseView.text = getString(
-                        R.string.image_placeholder,
-                        firstImage
-                    )
+
+                    // Show breed name
+                    apiResponseView.text = getString(R.string.image_placeholder, breedName)
                 } else {
                     Log.e(
                         MAIN_ACTIVITY, "Failed to get response\n" +
@@ -78,7 +95,8 @@ class MainActivity : AppCompatActivity() {
             }
         })
     }
-    companion object{
+
+    companion object {
         const val MAIN_ACTIVITY = "MAIN_ACTIVITY"
     }
 }
